@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google-site-verification" content="YxV5dXbiqdx_62_i--p8H7xA5oVZTrjRmvVh9j28TEI" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/lwa/static/img/favicon.ico" type="image/x-icon">
+
+    <title>OVRO Solar Viewer</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        .custom-select {
+            margin-bottom: 15px;
+        }
+        .custom-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        #contentContainer {
+        display: flex;
+        justify-content: space-between;
+    }
+    #dailyImageSection, #externalContentFrame {
+        width: 49%;
+    }
+    #externalContentFrame {
+        border: none; /* Optional: removes the border of the iframe */
+    }
+    #websiteLogo {
+        height: 100px; /* Example height */
+        /* Add other styling properties as needed */
+    }
+    </style>
+
+</head>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-J6J5GSLKJ7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-J6J5GSLKJ7');
+</script>
+
+
+<body>
+
+    <div class="container mt-4">
+
+    <header>
+        <img src="/lwa/static/img/logo.jpg" alt="Logo" id="websiteLogo">
+        <!-- ... other header elements ... -->
+    </header>
+        <h1 class="text-center">OVRO LWA Solar Observation Preview</h1>
+        <div class="row justify-content-center">
+            <div class="col-6 text-center">
+                <label for="dateSelector">Available:</label>
+                <select id="dateSelector" class="custom-select" onchange="dateSelected()">
+                    <!-- Options will be added here by JavaScript -->
+                </select>
+            </div>
+            <div class="col-6 text-center">
+                <label for="datePicker">Select a day (mm/dd/yyyy):</label>
+                
+                <input type="date" id="datePicker">
+
+                <button class="custom-button" onclick="changeDay(-1)"> -1Day</button>
+                <button class="custom-button" onclick="changeDay(1)"> +1Day</button>
+                
+                <button class="custom-button" onclick="fetchImage()">Show Images</button>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="contentContainer">
+        <div id="dailyImageSection">
+            <h2>Daily spectrogram</h2>
+            <!-- The daily image will be added here -->
+        </div>
+        <iframe id="externalContentFrame" height="600px" src="">
+            <!-- External content will be loaded here -->
+        </iframe>
+    </div>
+    <div id="imageGallerySection">
+        <h2>Hourly spectrogram</h2>
+        <div id="imageGallery" class="row">
+            <!-- Gallery images will be added here -->
+        </div>
+    </div>
+
+    <script>
+        function fetchImage() {
+            var date = document.getElementById('datePicker').value;
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/lwa/get-image", true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    var response = JSON.parse(xhr.responseText);
+                    var imageUrls = response.image_urls;
+                    if (imageUrls.length === 0) {
+                        displayNoDataMessage();
+                    } else {
+                        updateImageDisplay(imageUrls);
+                    }
+                }
+            };
+            // update the external content
+            updateExternalContent(date);
+            xhr.send('date=' + date);
+        }
+
+        function displayNoDataMessage() {
+        var dailyImageSection = document.getElementById('dailyImageSection');
+        var imageGallery = document.getElementById('imageGallery');
+
+        dailyImageSection.innerHTML = '<h2>Daily spectrogram</h2><p> ... No data this day</p>';
+        imageGallery.innerHTML = '<p> ... No data this day</p>';
+    }
+    
+    function updateExternalContent(date) {
+        var formattedDate = date.replaceAll('-', '');
+        var iframeSrc = `http://ovsa.njit.edu/lwa-data/1min_images/${formattedDate}/movie_${date}.html`;
+        document.getElementById('externalContentFrame').src = iframeSrc;
+    }
+    function updateImageDisplay(imageUrls) {
+        // sort img  urls
+        imageUrls.sort();
+        var dailyImageSection = document.getElementById('dailyImageSection');
+        var imageGallery = document.getElementById('imageGallery');
+
+        // Clear existing content
+        dailyImageSection.innerHTML = '<h2>Daily spectrogram</h2>';
+        imageGallery.innerHTML = '';
+
+        // Set the daily image if available
+        if (imageUrls.length > 0) {
+            var dailyImg = new Image();
+            dailyImg.src = imageUrls[0];
+            dailyImg.classList.add('gallery-image');
+            dailyImg.onclick = function() {
+                window.open(imageUrls[0], '_blank');
+            };
+            dailyImageSection.appendChild(dailyImg);
+
+                // Create and append the link for the .fits file
+            var fitsUrl = imageUrls[0].replace(".png", ".fits").replace("/daily", "/fits");
+            var fitsLink = document.createElement('a');
+            fitsLink.href = fitsUrl;
+            fitsLink.textContent = "Download FITS file";
+            fitsLink.style.display = "block"; // Ensures the link appears on a new line
+            fitsLink.target = "_blank"; // Opens the link in a new tab
+            dailyImageSection.appendChild(fitsLink);
+        }
+
+        // Set the gallery images
+        for (var i = 1; i < imageUrls.length; i++) {
+            var img = new Image();
+            img.src = imageUrls[i];
+            img.classList.add('gallery-image', 'col-6', 'col-md-4', 'col-lg-3');
+            // Using a closure to ensure the correct URL is used
+            (function(url) {
+                img.onclick = function() {
+                    window.open(url, '_blank');
+                };
+            })(imageUrls[i]);
+            imageGallery.appendChild(img);
+        }
+    }
+        
+
+    function fetchAvailableDates() {
+        fetch('/lwa/get-avail-day')
+            .then(response => response.json())
+            .then(dates => {
+                var selector = document.getElementById('dateSelector');
+                dates.sort().reverse(); // Reversing the order of dates
+                dates.forEach(date => {
+                    var option = new Option(date, date);
+                    selector.add(option);
+                });
+            });
+    }
+
+        function dateSelected() {
+        var selectedDate = document.getElementById('dateSelector').value;
+        document.getElementById('datePicker').value = selectedDate;
+        fetchImage();
+    }
+    // Function to calculate yesterday's date
+    function setYesterdaysDate() {
+        var today = new Date();
+        var yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        var dd = String(yesterday.getDate()).padStart(2, '0');
+        var mm = String(yesterday.getMonth() + 1).padStart(2, '0'); //January is 0!
+        var yyyy = yesterday.getFullYear();
+
+        yesterday = yyyy + '-' + mm + '-' + dd;
+        document.getElementById('datePicker').value = yesterday;
+    }
+
+
+    function changeDay(offset) {
+        var currentDate = new Date(document.getElementById('datePicker').value);
+        currentDate.setDate(currentDate.getDate() + offset);
+
+        var dd = String(currentDate.getDate()).padStart(2, '0');
+        var mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+        var yyyy = currentDate.getFullYear();
+
+        var newDate = yyyy + '-' + mm + '-' + dd;
+        document.getElementById('datePicker').value = newDate;
+
+        fetchImage(); // Fetch images for the new date
+    }
+
+        // Call this function when the page loads
+        // Call these functions when the page loads
+    setYesterdaysDate(); // Set yesterday's date in the date input
+    fetchAvailableDates();
+    fetchImage(); // Fetch image for yesterday's date
+    updateExternalContent(document.getElementById('datePicker').value);
+
+    </script>
+    
+    
+    
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+
+</html>
